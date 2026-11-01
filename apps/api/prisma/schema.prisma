@@ -1,0 +1,500 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  CUSTOMER
+  ADMIN
+  DRIVER
+  RENTAL_PROVIDER
+  RESTAURANT_OWNER
+}
+
+enum BookingStatus {
+  REQUESTED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum VehicleCategory {
+  ECONOMY
+  COMFORT
+  PREMIUM
+  VAN
+  MOTORBIKE
+}
+
+enum RentalStatus {
+  REQUESTED
+  CONFIRMED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum FoodOrderStatus {
+  PLACED
+  ACCEPTED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum FulfillmentType {
+  DELIVERY
+  PICKUP
+}
+
+enum ReservationStatus {
+  REQUESTED
+  CONFIRMED
+  SEATED
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYHERE
+  CASH
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  SUCCEEDED
+}
+
+enum NotificationType {
+  BOOKING
+  PAYMENT
+  ORDER
+  RESERVATION
+  SYSTEM
+}
+
+enum ServiceType {
+  RIDE
+  RENTAL
+  FOOD
+  RESTAURANT
+  TRIP
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  passwordHash      String
+  fullName          String
+  phone             String?
+  isActive          Boolean            @default(true)
+  emailVerifiedAt   DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  roles             UserRole[]
+  customerProfile   CustomerProfile?
+  serviceProvider   ServiceProvider?
+  driver            Driver?
+  rideBookings      RideBooking[]       @relation("RideCustomer")
+  vehicleRentals    VehicleRental[]     @relation("RentalCustomer")
+  foodOrders        FoodOrder[]         @relation("FoodCustomer")
+  tableReservations TableReservation[]  @relation("ReservationCustomer")
+  tripPlans         TripPlan[]
+  payments          Payment[]
+  notifications     Notification[]
+  reviews           Review[]
+
+  @@index([createdAt])
+}
+
+model Role {
+  id        String     @id @default(cuid())
+  name      RoleName   @unique
+  users     UserRole[]
+  createdAt DateTime   @default(now())
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+}
+
+model CustomerProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  dateOfBirth DateTime?
+  preferences Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ServiceProvider {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  businessName String
+  description  String?
+  verifiedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicles     Vehicle[]
+  restaurants  Restaurant[]
+}
+
+model Driver {
+  id             String        @id @default(cuid())
+  userId         String        @unique
+  licenseNumber  String        @unique
+  isAvailable    Boolean       @default(false)
+  averageRating  Decimal       @default(0) @db.Decimal(3, 2)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rides          RideBooking[]
+
+  @@index([isAvailable])
+}
+
+model Vehicle {
+  id                String          @id @default(cuid())
+  providerId        String
+  make              String
+  model             String
+  year              Int
+  category          VehicleCategory
+  registrationNumber String          @unique
+  passengerCapacity Int
+  dailyRate         Decimal         @db.Decimal(10, 2)
+  currency          String          @default("LKR")
+  imageUrls         String[]
+  isAvailable       Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  provider          ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  rentals           VehicleRental[]
+
+  @@index([providerId, isAvailable])
+  @@index([category, dailyRate])
+}
+
+model VehicleRental {
+  id             String       @id @default(cuid())
+  reference      String       @unique
+  customerId     String
+  vehicleId      String
+  pickupAt       DateTime
+  returnAt       DateTime
+  totalAmount    Decimal      @db.Decimal(10, 2)
+  currency       String       @default("LKR")
+  status         RentalStatus @default(REQUESTED)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  customer       User         @relation("RentalCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  vehicle        Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+
+  @@index([customerId, createdAt])
+  @@index([vehicleId, pickupAt, returnAt])
+  @@index([status])
+}
+
+model RideBooking {
+  id                 String          @id @default(cuid())
+  reference          String          @unique
+  customerId         String
+  driverId           String?
+  pickup             String
+  destination        String
+  pickupLatitude     Decimal?        @db.Decimal(9, 6)
+  pickupLongitude    Decimal?        @db.Decimal(9, 6)
+  destinationLatitude Decimal?       @db.Decimal(9, 6)
+  destinationLongitude Decimal?      @db.Decimal(9, 6)
+  category           VehicleCategory @default(ECONOMY)
+  distanceKm         Decimal?        @db.Decimal(8, 2)
+  estimatedFare      Decimal         @db.Decimal(10, 2)
+  currency           String          @default("LKR")
+  status             BookingStatus  @default(REQUESTED)
+  scheduledAt        DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  customer           User           @relation("RideCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  driver             Driver?        @relation(fields: [driverId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, createdAt])
+  @@index([driverId, status])
+  @@index([status, scheduledAt])
+}
+
+model Restaurant {
+  id           String             @id @default(cuid())
+  providerId   String
+  name         String
+  description  String?
+  address      String
+  cuisine      String[]
+  imageUrls    String[]
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  provider     ServiceProvider    @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  categories   FoodCategory[]
+  foodItems    FoodItem[]
+  orders       FoodOrder[]
+  tables       RestaurantTable[]
+  reservations TableReservation[]
+
+  @@index([isActive, name])
+}
+
+model FoodCategory {
+  id           String     @id @default(cuid())
+  restaurantId String
+  name         String
+  sortOrder    Int        @default(0)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  items        FoodItem[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId, sortOrder])
+}
+
+model FoodItem {
+  id           String       @id @default(cuid())
+  restaurantId String
+  categoryId   String
+  name         String
+  description  String?
+  price        Decimal      @db.Decimal(10, 2)
+  imageUrl     String?
+  isAvailable  Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category     FoodCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  orderItems   OrderItem[]
+
+  @@index([restaurantId, isAvailable])
+  @@index([categoryId])
+}
+
+model FoodOrder {
+  id             String          @id @default(cuid())
+  reference      String          @unique
+  customerId     String
+  restaurantId   String
+  fulfillment    FulfillmentType
+  deliveryAddress String?
+  status         FoodOrderStatus @default(PLACED)
+  subtotal       Decimal         @db.Decimal(10, 2)
+  deliveryFee    Decimal         @default(0) @db.Decimal(10, 2)
+  totalAmount    Decimal         @db.Decimal(10, 2)
+  currency       String          @default("LKR")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  customer       User            @relation("FoodCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  items          OrderItem[]
+
+  @@index([customerId, createdAt])
+  @@index([restaurantId, status])
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  foodItemId  String
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  notes       String?
+  order       FoodOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  foodItem    FoodItem  @relation(fields: [foodItemId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+}
+
+model RestaurantTable {
+  id           String             @id @default(cuid())
+  restaurantId String
+  name         String
+  capacity     Int
+  isActive     Boolean            @default(true)
+  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  reservations TableReservation[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId, capacity])
+}
+
+model TableReservation {
+  id           String            @id @default(cuid())
+  reference    String            @unique
+  customerId   String
+  restaurantId String
+  tableId      String?
+  reservedAt   DateTime
+  guestCount   Int
+  status       ReservationStatus @default(REQUESTED)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  customer     User              @relation("ReservationCustomer", fields: [customerId], references: [id], onDelete: Restrict)
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  table        RestaurantTable?  @relation(fields: [tableId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, reservedAt])
+  @@index([restaurantId, reservedAt, status])
+}
+
+model Destination {
+  id          String              @id @default(cuid())
+  name        String
+  slug        String              @unique
+  description String?
+  country     String              @default("Sri Lanka")
+  latitude    Decimal?            @db.Decimal(9, 6)
+  longitude   Decimal?            @db.Decimal(9, 6)
+  imageUrl    String?
+  createdAt   DateTime            @default(now())
+  itineraryItems TripItineraryItem[]
+
+  @@index([country, name])
+}
+
+model TripPlan {
+  id          String              @id @default(cuid())
+  userId      String
+  title       String
+  startDate   DateTime?
+  endDate     DateTime?
+  currency    String              @default("LKR")
+  budget      Decimal?            @db.Decimal(10, 2)
+  isPublic    Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       TripItineraryItem[]
+
+  @@index([userId, updatedAt])
+}
+
+model TripItineraryItem {
+  id            String      @id @default(cuid())
+  tripPlanId    String
+  destinationId String?
+  title         String
+  notes         String?
+  dayNumber     Int
+  sortOrder     Int         @default(0)
+  startsAt      DateTime?
+  estimatedCost Decimal?    @db.Decimal(10, 2)
+  tripPlan      TripPlan    @relation(fields: [tripPlanId], references: [id], onDelete: Cascade)
+  destination   Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+
+  @@index([tripPlanId, dayNumber, sortOrder])
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  userId            String
+  serviceType       ServiceType
+  serviceId         String
+  provider          PaymentProvider
+  providerReference String?         @unique
+  amount            Decimal         @db.Decimal(10, 2)
+  currency          String          @default("LKR")
+  status            PaymentStatus   @default(PENDING)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  user              User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  transactions      Transaction[]
+  refunds           Refund[]
+
+  @@index([userId, createdAt])
+  @@index([serviceType, serviceId])
+  @@index([status])
+}
+
+model Transaction {
+  id                String            @id @default(cuid())
+  paymentId         String
+  providerReference String?           @unique
+  amount            Decimal           @db.Decimal(10, 2)
+  currency          String            @default("LKR")
+  status            TransactionStatus @default(PENDING)
+  responseCode      String?
+  createdAt         DateTime          @default(now())
+  payment           Payment           @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, createdAt])
+}
+
+model Refund {
+  id                String       @id @default(cuid())
+  paymentId         String
+  amount            Decimal      @db.Decimal(10, 2)
+  currency          String       @default("LKR")
+  reason            String?
+  status            RefundStatus @default(REQUESTED)
+  providerReference String?      @unique
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  payment           Payment      @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([paymentId, status])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model Review {
+  id          String      @id @default(cuid())
+  userId      String
+  serviceType ServiceType
+  serviceId   String
+  rating      Int
+  comment     String?
+  createdAt   DateTime    @default(now())
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serviceType, serviceId])
+  @@index([serviceType, serviceId, createdAt])
+}

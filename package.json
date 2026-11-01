@@ -1,0 +1,15 @@
+{
+  "name": "wayfarer-travel-platform",
+  "private": true,
+  "workspaces": ["apps/web", "apps/api"],
+  "scripts": {
+    "dev": "npm run dev:web",
+    "dev:web": "npm run dev --workspace web",
+    "dev:api": "npm run dev --workspace @wayfarer/api",
+    "build": "npm run build --workspace web",
+    "lint": "npm run lint --workspace web",
+    "db:generate": "npm run db:generate --workspace @wayfarer/api",
+    "db:migrate": "npm run db:migrate --workspace @wayfarer/api",
+    "db:seed": "npm run db:seed --workspace @wayfarer/api"
+  }
+}
