@@ -1,12 +1,47 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowUpRight, CarFront, MapPinned } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  CarFront,
+  CircleUserRound,
+  Clock3,
+  House,
+  LogOut,
+  Plane,
+  Search,
+  Utensils,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type SessionUser = { id: string; fullName: string; email: string; roles: string[] };
 type Ride = { id: string; reference: string; pickup: string; destination: string; status: string; createdAt: string };
+
+const services = [
+  {
+    title: "Transportation",
+    description: "Book rides, rent vehicles, view routes & fares",
+    href: "/rides/new",
+    icon: CarFront,
+    tone: "mint",
+  },
+  {
+    title: "Food & Dining",
+    description: "Order food, book tables at top restaurants",
+    href: "/?service=Food",
+    icon: Utensils,
+    tone: "rose",
+  },
+  {
+    title: "Travel Planner",
+    description: "Explore destinations, create itineraries, find guides",
+    href: "/?service=Trips",
+    icon: Plane,
+    tone: "sky",
+  },
+];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -43,26 +78,101 @@ export default function DashboardPage() {
 
   if (loading) return <main className="dashboard-loading">Loading your travel desk…</main>;
 
+  const firstName = user?.fullName.split(" ")[0] ?? "Traveler";
+  const initials = user?.fullName
+    .split(" ")
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() ?? "W";
+
   return (
-    <main className="dashboard-page">
-      <header className="site-nav dashboard-nav">
-        <Link className="brand" href="/"><span className="brand-mark">W</span> wayfarer<span className="brand-period">.</span></Link>
-        <div className="nav-actions"><span className="dashboard-greeting">{user ? `Hello, ${user.fullName.split(" ")[0]}` : "Your travel desk"}</span><button className="button button-dark button-small" type="button" onClick={signOut}>Sign out</button></div>
-      </header>
-      <section className="dashboard-content">
-        <p className="eyebrow">YOUR TRAVEL DESK</p>
-        <h1>Good journeys<br /><em>start here.</em></h1>
-        <p className="dashboard-intro">Your plans, bookings and next steps, all in one place.</p>
-        <div className="dashboard-actions">
-          <Link className="dashboard-action" href="/rides/new"><span className="action-symbol"><ArrowUpRight size={19} aria-hidden="true" /></span><strong>Book a ride</strong><small>Get there without the guesswork</small></Link>
-          <Link className="dashboard-action" href="/?service=Cars"><span className="action-symbol"><CarFront size={19} aria-hidden="true" /></span><strong>Find a car</strong><small>Make the island yours to explore</small></Link>
-          <Link className="dashboard-action" href="/?service=Trips"><span className="action-symbol"><MapPinned size={19} aria-hidden="true" /></span><strong>Plan a trip</strong><small>Keep every detail together</small></Link>
+    <main className="dashboard-page travel-dashboard">
+      <aside className="dashboard-sidebar">
+        <Link className="dashboard-brand" href="/" aria-label="Wayfarer home">
+          <span className="dashboard-brand-mark"><Plane size={19} aria-hidden="true" /></span>
+          <span>Wayfarer</span>
+        </Link>
+
+        <nav className="dashboard-sidebar-nav" aria-label="Dashboard">
+          <Link className="sidebar-link active" href="/dashboard"><House size={17} aria-hidden="true" /><span>Home</span></Link>
+          <Link className="sidebar-link" href="/rides/new"><CarFront size={17} aria-hidden="true" /><span>Transportation</span></Link>
+          <Link className="sidebar-link" href="/?service=Food"><Utensils size={17} aria-hidden="true" /><span>Food &amp; Dining</span></Link>
+          <Link className="sidebar-link" href="/?service=Trips"><Plane size={17} aria-hidden="true" /><span>Travel Planner</span></Link>
+          <Link className="sidebar-link sidebar-link-spaced" href="#booking-history"><Clock3 size={17} aria-hidden="true" /><span>Booking History</span></Link>
+          <Link className="sidebar-link" href="#profile"><CircleUserRound size={17} aria-hidden="true" /><span>Profile</span></Link>
+        </nav>
+
+        <button className="sidebar-link sidebar-logout" type="button" onClick={signOut}>
+          <LogOut size={17} aria-hidden="true" /><span>Log out</span>
+        </button>
+      </aside>
+
+      <div className="dashboard-main">
+        <header className="dashboard-topbar">
+          <label className="dashboard-search">
+            <Search size={16} aria-hidden="true" />
+            <input type="search" placeholder="Search destinations, restaurants, or services..." aria-label="Search destinations, restaurants, or services" />
+          </label>
+          <div className="dashboard-topbar-actions">
+            <Link className="dashboard-notifications" href="#booking-history" aria-label="Booking updates">
+              <Bell size={18} aria-hidden="true" />
+            </Link>
+            <Link className="dashboard-profile" href="#profile" id="profile">
+              <span className="profile-avatar" aria-hidden="true">{initials}</span>
+              <span>{firstName}</span>
+              <span className="profile-chevron" aria-hidden="true">⌄</span>
+            </Link>
+          </div>
+        </header>
+
+        <div className="dashboard-content dashboard-workspace">
+          <section className="dashboard-welcome" aria-labelledby="dashboard-welcome-title">
+            <div className="welcome-copy">
+              <p className="eyebrow eyebrow-light">YOUR NEXT ADVENTURE STARTS HERE</p>
+              <h1 id="dashboard-welcome-title">Explore. Dine. Travel.<br />All in One Place.</h1>
+              <p>Discover amazing places, great food and comfortable travel options.</p>
+              <Link className="welcome-search-link" href="/?service=Trips">
+                <span>Where do you want to go?</span>
+                <span className="welcome-search-icon"><Search size={17} aria-hidden="true" /></span>
+              </Link>
+            </div>
+          </section>
+
+          <section className="dashboard-services" aria-label="Travel services">
+            {services.map(({ title, description, href, icon: Icon, tone }) => (
+              <article className={`service-card service-card-${tone}`} key={title}>
+                <span className="service-icon"><Icon size={28} strokeWidth={2.2} aria-hidden="true" /></span>
+                <h2>{title}</h2>
+                <p>{description}</p>
+                <Link className="service-card-link" href={href}>Explore <ArrowRight size={15} aria-hidden="true" /></Link>
+              </article>
+            ))}
+          </section>
+
+          <section className="booking-list dashboard-bookings" id="booking-history">
+            <div className="booking-list-heading">
+              <div><p className="eyebrow">YOUR TRAVEL PLANS</p><h2>Booking history</h2></div>
+              <span>{rides.length} {rides.length === 1 ? "booking" : "bookings"}</span>
+            </div>
+            {rides.length === 0 ? (
+              <div className="empty-bookings">
+                <span aria-hidden="true">↗</span>
+                <p>Your next adventure hasn’t been booked yet.</p>
+                <Link href="/rides/new">Start with a ride</Link>
+              </div>
+            ) : rides.map((ride) => (
+              <article className="ride-row" key={ride.id}>
+                <div>
+                  <strong>{ride.pickup} <span aria-hidden="true">→</span> {ride.destination}</strong>
+                  <small>{ride.reference} · {new Date(ride.createdAt).toLocaleDateString()}</small>
+                </div>
+                <span className={`status status-${ride.status.toLowerCase()}`}>{ride.status.toLowerCase()}</span>
+              </article>
+            ))}
+          </section>
         </div>
-        <section className="booking-list">
-          <div className="booking-list-heading"><div><p className="eyebrow">ALL IN ONE PLACE</p><h2>Your ride requests</h2></div><span>{rides.length} {rides.length === 1 ? "booking" : "bookings"}</span></div>
-          {rides.length === 0 ? <div className="empty-bookings"><span aria-hidden="true">↗</span><p>Your next adventure hasn’t been booked yet.</p><Link href="/rides/new">Start with a ride</Link></div> : rides.map((ride) => <article className="ride-row" key={ride.id}><div><strong>{ride.pickup} <span aria-hidden="true">→</span> {ride.destination}</strong><small>{ride.reference} · {new Date(ride.createdAt).toLocaleDateString()}</small></div><span className={`status status-${ride.status.toLowerCase()}`}>{ride.status.toLowerCase()}</span></article>)}
-        </section>
-      </section>
+      </div>
     </main>
   );
 }
